@@ -1,0 +1,16 @@
+{
+  "name": "whatsapp-api",
+  "type": "module",
+  "scripts": {
+    "start": "pm2-runtime ecosystem.config.cjs"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "whatsapp-web.js": "^1.26.0",
+    "bullmq": "^5.16.0",
+    "ioredis": "^5.4.1",
+    "qrcode": "^1.5.4",
+    "axios": "^1.6.8",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

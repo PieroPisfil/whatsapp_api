@@ -1,0 +1,26 @@
+services:
+  whatsapp-api:
+    build: .
+    container_name: whatsapp-api
+    restart: unless-stopped
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - JWT_SECRET=${JWT_SECRET}
+      - SECRET_WORD=${SECRET_WORD}
+      - PUPPETEER_EXECUTABLE_PATH=${PUPPETEER_EXECUTABLE_PATH}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+    shm_size: '2gb'
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - ./.wwebjs_auth:/app/.wwebjs_auth
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT}:${REDIS_PORT}"
