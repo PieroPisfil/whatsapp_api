@@ -35,12 +35,9 @@ COPY package*.json ./
 # ---- instalar dependencias UNA sola vez ----
 RUN npm install --omit=dev
 
-# ---- PM2 global ----
-RUN npm install -g pm2
-
 # ---- copiar código ----
 COPY . .
 
 EXPOSE 3000
 
-CMD ["pm2-runtime", "ecosystem.config.cjs"]
+CMD ["npm", "start"]

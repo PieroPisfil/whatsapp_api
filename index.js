@@ -207,9 +207,14 @@ app.post('/reset', async (req, res) => {
         const sessionPath = path.resolve(SESSION_PATH);
         
         if (fs.existsSync(sessionPath)) {
-            // rm con { recursive: true } borra carpetas y contenido
-            fs.rmSync(sessionPath, { recursive: true, force: true });
-            console.log('Carpeta de sesión eliminada.');
+            // En Docker, no podemos borrar el directorio raíz del volumen (punto de montaje)
+            // Borramos recursivamente todo lo que hay DENTRO de él.
+            const files = fs.readdirSync(sessionPath);
+            for (const file of files) {
+                const fullPath = path.join(sessionPath, file);
+                fs.rmSync(fullPath, { recursive: true, force: true });
+            }
+            console.log('Contenido de la sesión eliminado (manteniendo el punto de montaje).');
         }
 
         // 3. Volver a iniciar el cliente para generar un QR limpio
