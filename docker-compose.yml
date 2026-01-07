@@ -24,3 +24,31 @@ services:
     restart: unless-stopped
     ports:
       - "${REDIS_PORT}:${REDIS_PORT}"
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d/whatsapp.conf:/etc/nginx/templates/whatsapp.conf.template:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    environment:
+      - SERVER_NAME=${SERVER_NAME:-wa.worldcopier-import.com}
+      - HTTPS_REDIRECT=${HTTPS_REDIRECT:-}
+      - HTTP_PROXY=${HTTP_PROXY:-#}
+      - SSL_PORT=${SSL_PORT:-443 ssl}
+      - SSL_DISABLED=${SSL_DISABLED:-}
+    depends_on:
+      - whatsapp-api
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt:rw
+      - ./certbot/www:/var/www/certbot:rw
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
