@@ -40,7 +40,6 @@ services:
       - SERVER_NAME=${SERVER_NAME:-wa.worldcopier-import.com}
       - HTTPS_REDIRECT=${HTTPS_REDIRECT:-}
       - HTTP_PROXY=${HTTP_PROXY:-#}
-      - SSL_PORT=${SSL_PORT:-443 ssl}
       - SSL_DISABLED=${SSL_DISABLED:-}
     depends_on:
       - whatsapp-api
