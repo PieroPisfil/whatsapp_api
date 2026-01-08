@@ -1,4 +1,7 @@
-node_modules/
+# Certificados y logs de Certbot
+certbot/
+
+# Variables de entorno y sesiones sensibles
 .env
 .wwebjs_auth/
 .wwebjs_cache/
