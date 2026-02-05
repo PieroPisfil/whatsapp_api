@@ -15,7 +15,7 @@ const port = process.env.PORT || 3000;
 
 // URL donde quieres recibir los mensajes entrantes (Tu Webhook)
 // Puedes usar https://webhook.site para probar si no tienes servidor aún.
-var WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://tu-servidor-externo.com/webhook/whatsapp';
+let WEBHOOK_URLS = (process.env.WEBHOOK_URLS || 'https://tu-servidor.com/webhook').split(',').map(url => url.trim());
 
 // Middleware para parsear JSON
 app.use(express.json({ limit: '100mb' }));
@@ -94,6 +94,12 @@ client.on('message', async msg => {
 
     console.log(`Mensaje recibido de ${msg.from}: ${msg.body} ${isSelf ? '(Auto-mensaje)' : ''}`);
 
+    //Si no hay webhooks configurados, no hacemos nada
+    if (WEBHOOK_URLS.length === 0) {
+        console.log('No hay URLs de webhook configuradas. Ignorando mensaje entrante.');
+        return;
+    }
+
     try {
         let mediaData = null;
         if (msg.hasMedia) {
@@ -124,8 +130,18 @@ client.on('message', async msg => {
             isGroup: msg.isGroupMsg
         };
         
-        await axios.post(WEBHOOK_URL, payload, { timeout: 5000 });
-        console.log(`[Webhook] Notificación enviada con éxito.`);
+        // Al enviar, usar Promise.allSettled para no fallar si uno se cae
+        const results = await Promise.allSettled(
+            WEBHOOK_URLS.map(url => axios.post(url, payload, { timeout: 3000 }))
+        );
+
+        results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+                console.error(`Webhook ${index} falló:`, result.reason.message);
+            } else {
+                console.log(`Webhook ${index} enviado exitosamente`);
+            }
+        });
     } catch (error) {
         console.error('Error enviando al Webhook:', error.message);
     }
@@ -313,45 +329,74 @@ app.post('/send', async (req, res) => {
 
 /**
  * POST /webhook/set
- * Establece la URL del webhook donde se enviarán los mensajes entrantes.
- * Body esperado: { "webhook_url": "https://tu-servidor.com/webhook" }
+ * Establece una o varias URLs del webhook.
+ * Body aceptado:
+ *  - { "webhook_url": "https://tu-servidor.com/webhook" }
+ *  - { "webhook_urls": ["https://a.com/webhook","https://b.com/webhook"] }
  */
 app.post('/webhook/set', (req, res) => {
-    const { webhook_url } = req.body;
+    const { webhook_url, webhook_urls } = req.body;
 
-    if (!webhook_url) {
+    if (!webhook_url && !(webhook_urls && Array.isArray(webhook_urls))) {
         return res.status(400).json({ 
-            error: 'El campo "webhook_url" es obligatorio.' 
+            error: 'Se requiere "webhook_url" o "webhook_urls".' 
         });
     }
 
-    // Validar que sea una URL válida
+    // Normalizar a array
+    let urls = [];
+    if (webhook_urls && Array.isArray(webhook_urls)) urls = webhook_urls;
+    if (webhook_url) urls.push(webhook_url);
+
+    // Validar todas las URLs
     try {
-        new URL(webhook_url);
+        urls = urls.map(u => new URL(u).toString().trim());
     } catch (error) {
-        return res.status(400).json({ 
-            error: 'La URL proporcionada no es válida.' 
-        });
+        return res.status(400).json({ error: 'Al menos una URL proporcionada no es válida.' });
     }
 
-    // Actualizar la variable global WEBHOOK_URL
-    WEBHOOK_URL = webhook_url;
+    // Dedupe y asignar
+    WEBHOOK_URLS = Array.from(new Set(urls));
 
     res.json({
         status: 'SUCCESS',
-        message: 'URL del webhook actualizada correctamente.',
-        webhook_url: WEBHOOK_URL
+        message: 'URLs del webhook actualizadas correctamente.',
+        webhook_urls: WEBHOOK_URLS
     });
 });
 
 /**
+ * DELETE /webhook/delete
+ * Elimina una URL específica o todas si no se especifica.
+ * Body opcional: { "webhook_url": "https://a.com/webhook" }
+ */
+app.delete('/webhook/delete', (req, res) => {
+    const { webhook_url } = req.body || {};
+
+    if (!webhook_url) {
+        // Eliminar todas
+        WEBHOOK_URLS = [];
+        return res.json({ status: 'SUCCESS', message: 'Todas las URLs de webhook fueron eliminadas.', webhook_urls: WEBHOOK_URLS });
+    }
+
+    // Validar la URL
+    try { new URL(webhook_url); } catch (error) {
+        return res.status(400).json({ error: 'La URL proporcionada no es válida.' });
+    }
+
+    const before = WEBHOOK_URLS.length;
+    WEBHOOK_URLS = WEBHOOK_URLS.filter(u => u !== webhook_url && u !== webhook_url.trim());
+    const removed = before !== WEBHOOK_URLS.length;
+
+    res.json({ status: 'SUCCESS', message: removed ? 'URL eliminada.' : 'URL no encontrada.', webhook_urls: WEBHOOK_URLS });
+});
+
+/**
  * GET /webhook/get
- * Obtiene la URL actual del webhook.
+ * Obtiene la(s) URL(s) actual(es) del webhook.
  */
 app.get('/webhook/get', (req, res) => {
-    res.json({
-        webhook_url: WEBHOOK_URL
-    });
+    res.json({ webhook_urls: WEBHOOK_URLS });
 });
 
 // Iniciar servidor Express
