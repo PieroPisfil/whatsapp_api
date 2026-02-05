@@ -15,7 +15,7 @@ const port = process.env.PORT || 3000;
 
 // URL donde quieres recibir los mensajes entrantes (Tu Webhook)
 // Puedes usar https://webhook.site para probar si no tienes servidor aún.
-const WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://tu-servidor-externo.com/webhook/whatsapp';
+var WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://tu-servidor-externo.com/webhook/whatsapp';
 
 // Middleware para parsear JSON
 app.use(express.json({ limit: '100mb' }));
@@ -308,6 +308,50 @@ app.post('/send', async (req, res) => {
     status: 'QUEUED',
     message: 'Mensaje agregado a la cola'
   });
+});
+
+
+/**
+ * POST /webhook/set
+ * Establece la URL del webhook donde se enviarán los mensajes entrantes.
+ * Body esperado: { "webhook_url": "https://tu-servidor.com/webhook" }
+ */
+app.post('/webhook/set', (req, res) => {
+    const { webhook_url } = req.body;
+
+    if (!webhook_url) {
+        return res.status(400).json({ 
+            error: 'El campo "webhook_url" es obligatorio.' 
+        });
+    }
+
+    // Validar que sea una URL válida
+    try {
+        new URL(webhook_url);
+    } catch (error) {
+        return res.status(400).json({ 
+            error: 'La URL proporcionada no es válida.' 
+        });
+    }
+
+    // Actualizar la variable global WEBHOOK_URL
+    WEBHOOK_URL = webhook_url;
+
+    res.json({
+        status: 'SUCCESS',
+        message: 'URL del webhook actualizada correctamente.',
+        webhook_url: WEBHOOK_URL
+    });
+});
+
+/**
+ * GET /webhook/get
+ * Obtiene la URL actual del webhook.
+ */
+app.get('/webhook/get', (req, res) => {
+    res.json({
+        webhook_url: WEBHOOK_URL
+    });
 });
 
 // Iniciar servidor Express
