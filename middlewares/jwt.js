@@ -5,7 +5,7 @@ export function sign(payload) {
     throw new Error("JWT_SECRET no está definido o es demasiado corto (mínimo 32 caracteres).");
   }
 
-  return jwt.sign(payload, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '365d' });
+  return jwt.sign(payload, process.env.JWT_SECRET, { algorithm: 'HS256' });
 }
 
 export function verify(req, res, next) {
