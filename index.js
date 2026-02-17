@@ -127,7 +127,8 @@ client.on('message', async msg => {
             hasMedia: msg.hasMedia,
             media: mediaData,
             timestamp: msg.timestamp,
-            isGroup: msg.isGroupMsg
+            isGroup: msg.isGroupMsg,
+            number: msg.from.replace('@c.us', '') // Solo el número sin el sufijo
         };
         
         // Al enviar, usar Promise.allSettled para no fallar si uno se cae
