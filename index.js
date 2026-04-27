@@ -16,6 +16,7 @@ const port = process.env.PORT || 3000;
 // URL donde quieres recibir los mensajes entrantes (Tu Webhook)
 // Puedes usar https://webhook.site para probar si no tienes servidor aún.
 let WEBHOOK_URLS = (process.env.WEBHOOK_URLS || 'https://tu-servidor.com/webhook').split(',').map(url => url.trim());
+let phoneNumber;
 
 // Middleware para parsear JSON
 app.use(express.json({ limit: '100mb' }));
@@ -67,6 +68,11 @@ client.on('ready', () => {
     console.log('¡Cliente de WhatsApp listo!');
     qrCodeData = null; // Limpiamos el QR porque ya no es necesario
     clientReady = true;
+    
+    if (client.info && client.info.wid) {
+        phoneNumber = client.info.wid.user;
+        console.log(`Sesión iniciada con el número: ${phoneNumber}`);
+    }
 });
 
 // Evento: Autenticación fallida
@@ -159,7 +165,7 @@ client.on('message', async msg => {
  */
 app.get('/session', async (req, res) => {
     if (clientReady) {
-        return res.json({ status: 'CONNECTED', message: 'WhatsApp ya está listo' });
+        return res.json({ status: 'CONNECTED', message: 'WhatsApp ya está listo', phone_number: phoneNumber });
     }
 
     if (!qrCodeData) {
@@ -190,6 +196,7 @@ app.post('/logout', async (req, res) => {
             await client.logout(); 
             clientReady = false;
             qrCodeData = null;
+            phoneNumber = null;
             
             // Nota: Al hacer logout, la librería suele emitir el evento 'disconnected'
             // y a veces requiere reinicializar para volver a mostrar el QR.
@@ -218,7 +225,7 @@ app.post('/reset', async (req, res) => {
         await client.destroy();
         clientReady = false;
         qrCodeData = null;
-
+        phoneNumber = null;
         // 2. Borrar la carpeta de autenticación recursivamente
         // Usamos path.resolve para asegurar la ruta correcta
         const sessionPath = path.resolve(SESSION_PATH);
