@@ -1,22 +1,66 @@
 services:
-  whatsapp-api:
+  whatsapp-api-1:
     build: .
-    container_name: whatsapp-api
+    container_name: whatsapp-api-1
     restart: unless-stopped
     depends_on:
       - redis
     environment:
+      - PORT=3001
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
+      - REDIS_DB=1
       - JWT_SECRET=${JWT_SECRET}
       - SECRET_WORD=${SECRET_WORD}
       - PUPPETEER_EXECUTABLE_PATH=${PUPPETEER_EXECUTABLE_PATH}
-      - WEBHOOK_URL=${WEBHOOK_URL}
-    shm_size: '2gb'
+      - WEBHOOK_URLS=${WEBHOOK_URLS}
+    shm_size: '1gb'
     ports:
-      - "${PORT}:${PORT}"
+      - "3001:3001"
     volumes:
-      - ./.wwebjs_auth:/app/.wwebjs_auth
+      - ./.wwebjs_auth_1:/app/.wwebjs_auth
+
+  whatsapp-api-2:
+    build: .
+    container_name: whatsapp-api-2
+    restart: unless-stopped
+    depends_on:
+      - redis
+    environment:
+      - PORT=3002
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_DB=2
+      - JWT_SECRET=${JWT_SECRET}
+      - SECRET_WORD=${SECRET_WORD}
+      - PUPPETEER_EXECUTABLE_PATH=${PUPPETEER_EXECUTABLE_PATH}
+      - WEBHOOK_URLS=${WEBHOOK_URLS}
+    shm_size: '1gb'
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./.wwebjs_auth_2:/app/.wwebjs_auth
+
+  whatsapp-api-3:
+    build: .
+    container_name: whatsapp-api-3
+    restart: unless-stopped
+    depends_on:
+      - redis
+    environment:
+      - PORT=3003
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_DB=3
+      - JWT_SECRET=${JWT_SECRET}
+      - SECRET_WORD=${SECRET_WORD}
+      - PUPPETEER_EXECUTABLE_PATH=${PUPPETEER_EXECUTABLE_PATH}
+      - WEBHOOK_URLS=${WEBHOOK_URLS}
+    shm_size: '1gb'
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./.wwebjs_auth_3:/app/.wwebjs_auth
 
   redis:
     image: redis:7-alpine

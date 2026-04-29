@@ -38,6 +38,4 @@ RUN npm install --omit=dev
 # ---- copiar código ----
 COPY . .
 
-EXPOSE 3000
-
 CMD ["npm", "start"]
