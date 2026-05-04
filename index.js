@@ -9,6 +9,14 @@ import { messageQueue } from './queue.js';
 import './worker.js'; // 🔥 Importamos el worker para que corra en este mismo proceso
 import { verify, sign } from './middlewares/jwt.js';
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[Process] Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[Process] Uncaught Exception:', error);
+});
+
 const app = express();
 const port = process.env.PORT || 3000;
 
