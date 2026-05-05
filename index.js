@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { messageQueue } from './queue.js';
-import './worker.js'; // 🔥 Importamos el worker para que corra en este mismo proceso
+import { setBulkMode, getBulkMode } from './worker.js'; // 🔥 Importamos el worker para que corra en este mismo proceso
 import { verify, sign } from './middlewares/jwt.js';
 
 process.on('unhandledRejection', (reason) => {
@@ -413,6 +413,33 @@ app.delete('/webhook/delete', (req, res) => {
  */
 app.get('/webhook/get', (req, res) => {
     res.json({ webhook_urls: WEBHOOK_URLS });
+});
+
+/**
+ * GET /mode
+ * Obtiene el modo actual de envío (masivo o notificaciones).
+ */
+app.get('/mode', (req, res) => {
+    res.json({ mode: getBulkMode() ? 'bulk' : 'notification' });
+});
+
+/**
+ * POST /mode
+ * Configura si la instancia es para envío masivo o notificaciones.
+ * Body esperado: { "mode": "bulk" } o { "mode": "notification" }
+ */
+app.post('/mode', (req, res) => {
+    const { mode } = req.body;
+    
+    if (mode === 'bulk') {
+        setBulkMode(true);
+        return res.json({ status: 'SUCCESS', message: 'Modo masivo activado. Se aplicarán delays largos y aleatorios.' });
+    } else if (mode === 'notification') {
+        setBulkMode(false);
+        return res.json({ status: 'SUCCESS', message: 'Modo notificaciones activado. Envío rápido habilitado.' });
+    } else {
+        return res.status(400).json({ error: 'Modo inválido. Usa "bulk" o "notification".' });
+    }
 });
 
 // Iniciar servidor Express

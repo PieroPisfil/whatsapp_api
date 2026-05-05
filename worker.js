@@ -4,6 +4,10 @@ import { client, MessageMedia } from './whatsapp.js';
 
 const CLIENT_READY_TIMEOUT = 60000; // ms para esperar reconexión de WhatsApp
 
+let isBulkMode = false; // Por defecto modo notificaciones (rápido)
+export const setBulkMode = (mode) => { isBulkMode = mode; };
+export const getBulkMode = () => isBulkMode;
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const getRandomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -76,25 +80,36 @@ const worker = new Worker(
     if (!content) throw new Error('No se pudo determinar el contenido a enviar');
 
     // Simulamos comportamiento humano antes de enviar
-    try {
-      const chat = await client.getChatById(chatId);
-      await chat.sendStateTyping();
-      
-      const typingTime = getRandomDelay(0, 1000); // Simula escribir entre 0 y 1 segundos
-      console.log(`[Worker] Simulando escritura por ${typingTime / 1000}s para ${chatId}...`);
-      await sleep(typingTime);
-    } catch (err) {
-      console.warn(`[Worker] No se pudo simular estado "escribiendo". Esperando...`);
-      await sleep(getRandomDelay(0, 1000));
+    if (isBulkMode) {
+      try {
+        const chat = await client.getChatById(chatId);
+        await chat.sendStateTyping();
+        
+        const typingTime = getRandomDelay(1500, 4500); // Simula escribir entre 1.5 y 4.5 segundos
+        console.log(`[Worker] [BULK] Simulando escritura por ${typingTime / 1000}s para ${chatId}...`);
+        await sleep(typingTime);
+      } catch (err) {
+        console.warn(`[Worker] [BULK] No se pudo simular estado "escribiendo". Esperando...`);
+        await sleep(getRandomDelay(1000, 2000));
+      }
+    } else {
+      // Modo notificaciones (rápido sin teclear)
+      await sleep(getRandomDelay(50, 200)); 
     }
 
     await client.sendMessage(chatId, content, options);
     console.log(`[Worker] Mensaje/Media enviado con éxito a ${chatId}`);
 
     // Retraso aleatorio largo antes de procesar el siguiente mensaje 
-    const delayNext = getRandomDelay(500, 2000);
-    console.log(`[Worker] Esperando ${delayNext / 1000}s antes del siguiente mensaje...`);
-    await sleep(delayNext);
+    if (isBulkMode) {
+      const delayNext = getRandomDelay(3000, 10000); // 3 a 10 segundos de delay entre masivos
+      console.log(`[Worker] [BULK] Esperando ${delayNext / 1000}s antes del siguiente mensaje...`);
+      await sleep(delayNext);
+    } else {
+      const delayNext = getRandomDelay(200, 800); // Mínimo tiempo de espera para notificaciones rápidas
+      console.log(`[Worker] [NOTIFICACION] Esperando ${delayNext / 1000}s antes del siguiente mensaje...`);
+      await sleep(delayNext);
+    }
   },
   {
     connection,
