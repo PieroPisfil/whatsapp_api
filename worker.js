@@ -2,10 +2,11 @@ import { Worker } from 'bullmq';
 import { connection } from './redis.js';
 import { client, MessageMedia } from './whatsapp.js';
 
-const RATE_DELAY = 500; // ms entre mensajes
 const CLIENT_READY_TIMEOUT = 60000; // ms para esperar reconexión de WhatsApp
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const getRandomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 const isClientReady = () => {
   return !!(client.info?.wid && client.pupPage && !client.pupPage.isClosed());
@@ -74,10 +75,26 @@ const worker = new Worker(
     if (isDocument) options.sendMediaAsDocument = true;
     if (!content) throw new Error('No se pudo determinar el contenido a enviar');
 
+    // Simulamos comportamiento humano antes de enviar
+    try {
+      const chat = await client.getChatById(chatId);
+      await chat.sendStateTyping();
+      
+      const typingTime = getRandomDelay(0, 1000); // Simula escribir entre 0 y 1 segundos
+      console.log(`[Worker] Simulando escritura por ${typingTime / 1000}s para ${chatId}...`);
+      await sleep(typingTime);
+    } catch (err) {
+      console.warn(`[Worker] No se pudo simular estado "escribiendo". Esperando...`);
+      await sleep(getRandomDelay(0, 1000));
+    }
+
     await client.sendMessage(chatId, content, options);
     console.log(`[Worker] Mensaje/Media enviado con éxito a ${chatId}`);
 
-    await sleep(RATE_DELAY);
+    // Retraso aleatorio largo antes de procesar el siguiente mensaje 
+    const delayNext = getRandomDelay(500, 2000);
+    console.log(`[Worker] Esperando ${delayNext / 1000}s antes del siguiente mensaje...`);
+    await sleep(delayNext);
   },
   {
     connection,
