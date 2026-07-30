@@ -33,7 +33,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # ---- instalar dependencias UNA sola vez ----
-RUN npm install --omit=dev
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
 
 # ---- copiar código ----
 COPY . .

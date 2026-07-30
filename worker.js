@@ -1,14 +1,25 @@
 import { Worker } from 'bullmq';
 import { connection } from './redis.js';
 import { client, MessageMedia } from './whatsapp.js';
+import { loadBulkMode, saveBulkMode } from './store.js';
 
-const CLIENT_READY_TIMEOUT = 60000; // ms para esperar reconexión de WhatsApp
+const CLIENT_READY_TIMEOUT = 60000;
 
-let isBulkMode = false; // Por defecto modo notificaciones (rápido)
-export const setBulkMode = (mode) => { isBulkMode = mode; };
+let isBulkMode = false;
+
+export async function initBulkMode() {
+  isBulkMode = await loadBulkMode(false);
+  console.log(`[Worker] Modo cargado: ${isBulkMode ? 'bulk' : 'notification'}`);
+}
+
+export const setBulkMode = async (mode) => {
+  isBulkMode = Boolean(mode);
+  await saveBulkMode(isBulkMode);
+};
+
 export const getBulkMode = () => isBulkMode;
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const getRandomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -24,7 +35,7 @@ const waitForClientReady = async (timeout = CLIENT_READY_TIMEOUT) => {
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       client.off('ready', onReady);
-      reject(new Error('Timeout al esperar que el cliente de WhatsApp esté listo')); 
+      reject(new Error('Timeout al esperar que el cliente de WhatsApp esté listo'));
     }, timeout);
 
     const onReady = () => {
@@ -36,9 +47,9 @@ const waitForClientReady = async (timeout = CLIENT_READY_TIMEOUT) => {
   });
 };
 
-const worker = new Worker(
+export const worker = new Worker(
   'whatsapp-messages',
-  async job => {
+  async (job) => {
     const { to, message, mediaUrl, mediaData, mimetype, filename, isDocument } = job.data;
 
     if (!to || (!message && !mediaUrl && !mediaData)) {
@@ -79,34 +90,31 @@ const worker = new Worker(
     if (isDocument) options.sendMediaAsDocument = true;
     if (!content) throw new Error('No se pudo determinar el contenido a enviar');
 
-    // Simulamos comportamiento humano antes de enviar
     if (isBulkMode) {
       try {
         const chat = await client.getChatById(chatId);
         await chat.sendStateTyping();
-        
-        const typingTime = getRandomDelay(1500, 4500); // Simula escribir entre 1.5 y 4.5 segundos
+
+        const typingTime = getRandomDelay(1500, 4500);
         console.log(`[Worker] [BULK] Simulando escritura por ${typingTime / 1000}s para ${chatId}...`);
         await sleep(typingTime);
-      } catch (err) {
-        console.warn(`[Worker] [BULK] No se pudo simular estado "escribiendo". Esperando...`);
+      } catch {
+        console.warn('[Worker] [BULK] No se pudo simular estado "escribiendo". Esperando...');
         await sleep(getRandomDelay(1000, 2000));
       }
     } else {
-      // Modo notificaciones (rápido sin teclear)
-      await sleep(getRandomDelay(50, 200)); 
+      await sleep(getRandomDelay(50, 200));
     }
 
     await client.sendMessage(chatId, content, options);
     console.log(`[Worker] Mensaje/Media enviado con éxito a ${chatId}`);
 
-    // Retraso aleatorio largo antes de procesar el siguiente mensaje 
     if (isBulkMode) {
-      const delayNext = getRandomDelay(3000, 10000); // 3 a 10 segundos de delay entre masivos
+      const delayNext = getRandomDelay(3000, 10000);
       console.log(`[Worker] [BULK] Esperando ${delayNext / 1000}s antes del siguiente mensaje...`);
       await sleep(delayNext);
     } else {
-      const delayNext = getRandomDelay(200, 800); // Mínimo tiempo de espera para notificaciones rápidas
+      const delayNext = getRandomDelay(200, 800);
       console.log(`[Worker] [NOTIFICACION] Esperando ${delayNext / 1000}s antes del siguiente mensaje...`);
       await sleep(delayNext);
     }
@@ -117,11 +125,11 @@ const worker = new Worker(
   }
 );
 
-worker.on('active', job => {
+worker.on('active', (job) => {
   console.log(`[Worker] Trabajo activo: ${job.id}`);
 });
 
-worker.on('completed', job => {
+worker.on('completed', (job) => {
   console.log(`[Worker] Trabajo ${job.id} completado.`);
 });
 
@@ -133,6 +141,6 @@ worker.on('drained', () => {
   console.log('[Worker] Cola vacía. Esperando nuevos trabajos.');
 });
 
-worker.on('error', err => {
+worker.on('error', (err) => {
   console.error('[Worker] Error global:', err.message || err);
 });

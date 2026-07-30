@@ -7,16 +7,20 @@ services:
       - redis
     environment:
       - PORT=3001
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - REDIS_DB=1
       - JWT_SECRET=${JWT_SECRET}
       - SECRET_WORD=${SECRET_WORD}
       - PUPPETEER_EXECUTABLE_PATH=${PUPPETEER_EXECUTABLE_PATH}
       - WEBHOOK_URLS=${WEBHOOK_URLS}
-    shm_size: '3gb'
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - BODY_LIMIT=${BODY_LIMIT:-10mb}
+      - MAX_MEDIA_BYTES=${MAX_MEDIA_BYTES:-8388608}
+    shm_size: '1.5gb'
     ports:
-      - "3001:3001"
+      # Solo localhost: el nginx del host hace el reverse proxy
+      - "127.0.0.1:3001:3001"
     volumes:
       - ./.wwebjs_auth_1:/app/.wwebjs_auth
 
@@ -28,8 +32,8 @@ services:
   #     - redis
   #   environment:
   #     - PORT=3002
-  #     - REDIS_HOST=${REDIS_HOST}
-  #     - REDIS_PORT=${REDIS_PORT}
+  #     - REDIS_HOST=redis
+  #     - REDIS_PORT=6379
   #     - REDIS_DB=2
   #     - JWT_SECRET=${JWT_SECRET}
   #     - SECRET_WORD=${SECRET_WORD}
@@ -37,7 +41,7 @@ services:
   #     - WEBHOOK_URLS=${WEBHOOK_URLS}
   #   shm_size: '1.5gb'
   #   ports:
-  #     - "3002:3002"
+  #     - "127.0.0.1:3002:3002"
   #   volumes:
   #     - ./.wwebjs_auth_2:/app/.wwebjs_auth
 
@@ -49,8 +53,8 @@ services:
   #     - redis
   #   environment:
   #     - PORT=3003
-  #     - REDIS_HOST=${REDIS_HOST}
-  #     - REDIS_PORT=${REDIS_PORT}
+  #     - REDIS_HOST=redis
+  #     - REDIS_PORT=6379
   #     - REDIS_DB=3
   #     - JWT_SECRET=${JWT_SECRET}
   #     - SECRET_WORD=${SECRET_WORD}
@@ -58,43 +62,17 @@ services:
   #     - WEBHOOK_URLS=${WEBHOOK_URLS}
   #   shm_size: '1gb'
   #   ports:
-  #     - "3003:3003"
+  #     - "127.0.0.1:3003:3003"
   #   volumes:
   #     - ./.wwebjs_auth_3:/app/.wwebjs_auth
 
   redis:
     image: redis:7-alpine
-    container_name: redis
+    container_name: whatsapp-redis
     restart: unless-stopped
-    ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
-
-  nginx:
-    image: nginx:stable-alpine
-    container_name: nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
+    # Sin puertos publicados: solo accesible desde la red Docker de este compose
     volumes:
-      - ./nginx/conf.d/whatsapp.conf:/etc/nginx/templates/whatsapp.conf.template:ro
-      - ./certbot/conf:/etc/letsencrypt:ro
-      - ./certbot/www:/var/www/certbot:ro
-    environment:
-      - SERVER_NAME=${SERVER_NAME:-wa.worldcopier-import.com}
-      - HTTPS_REDIRECT=${HTTPS_REDIRECT:-}
-      - HTTP_PROXY=${HTTP_PROXY:-#}
-      - SSL_DISABLED=${SSL_DISABLED:-}
-    depends_on:
-      - whatsapp-api-1
-      # - whatsapp-api-2
-      # - whatsapp-api-3
+      - whatsapp_redis_data:/data
 
-  certbot:
-    image: certbot/certbot
-    container_name: certbot
-    restart: unless-stopped
-    volumes:
-      - ./certbot/conf:/etc/letsencrypt:rw
-      - ./certbot/www:/var/www/certbot:rw
-    entrypoint: /bin/sh -c 'if [ "$$#" -gt 0 ]; then exec certbot "$$@"; else trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done; fi' --
+volumes:
+  whatsapp_redis_data:
