@@ -11,3 +11,10 @@ yarn-error.log*
 .DS_Store
 dist/
 build/
+
+# Archivos temporales
+_tmp*
+tmp/
+temp/
+*.tmp
+*.temp
